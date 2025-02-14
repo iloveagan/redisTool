@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Redis 查询工具</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #filter-input {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Redis 查询工具</h1>
+    <form id="redis-form">
+        <label for="redis_connection">选择 Redis 连接:</label>
+        <select name="redis_connection" id="redis_connection">
+            <{foreach from=$redis_groups key=group_name item=group}>
+                <optgroup label="<{$group_name}>">
+                    <{foreach from=$group item=connection}>
+                        <option value="<{$connection.id}>"><{$connection.name}>（<{$connection.host}>:<{$connection.port}>）</option>
+                    <{/foreach}>
+                </optgroup>
+            <{/foreach}>
+        </select>
+        <input type="text" id="filter-input" placeholder="输入关键字过滤">
+        <br>
+        <label for="command">选择 Redis 命令:</label>
+        <select name="command" id="command" onchange="showCommandDescription(this.value)">
+            <{foreach from=$redis_commands item=command}>
+                <option value="<{$command.name}>"><{$command.name}></option>
+            <{/foreach}>
+        </select>
+        <div id="command-description"></div>
+        <br>
+        <label for="key">输入 Redis Key:</label>
+        <input type="text" name="key" id="key">
+        <br>
+        <label for="value">输入 Redis Value (适用于 SET、SETEX、LPUSH、RPUSH 命令):</label>
+        <input type="text" name="value" id="value">
+        <br>
+        <label for="start">起始索引 (仅适用于 LRANGE 命令):</label>
+        <input type="number" name="start" id="start">
+        <br>
+        <label for="stop">结束索引 (仅适用于 LRANGE 命令):</label>
+        <input type="number" name="stop" id="stop">
+        <br>
+        <label for="expire-time">输入过期时间（秒，适用于 EXPIRE 命令；毫秒，适用于 PEXPIRE 命令；UNIX 时间戳，适用于 EXPIREAT 命令）:</label>
+        <input type="number" name="expire-time" id="expire-time">
+        <br>
+        <input type="submit" value="执行">
+    </form>
+    <a href="https://redis.io/commands" target="_blank">查询 Redis 命令官网</a>
+    <div id="result"></div>
+
+    <script>
+        function showCommandDescription(command) {
+            var descriptions = <?php echo json_encode(array_column($redis_commands, 'description', 'name')); ?>;
+            var description = descriptions[command] || '暂无该命令说明';
+            $('#command-description').html('<p>' + description + '</p>');
+        }
+
+        $(document).ready(function () {
+            $('#filter-input').on('input', function () {
+                var keyword = $(this).val().toLowerCase();
+                $('#redis_connection option').each(function () {
+                    var optionText = $(this).text().toLowerCase();
+                    if (optionText.indexOf(keyword) === -1) {
+                        $(this).hide();
+                    } else {
+                        $(this).show();
+                    }
+                });
+                $('#redis_connection optgroup').each(function () {
+                    var hasVisibleOptions = $(this).find('option:visible').length > 0;
+                    if (hasVisibleOptions) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+
+            $('#redis-form').on('submit', function (e) {
+                e.preventDefault();
+                var formData = $(this).serialize();
+                $.ajax({
+                    url: 'query.php',
+                    type: 'POST',
+                    data: formData,
+                    success: function (response) {
+                        $('#result').html(response);
+                    },
+                    error: function () {
+                        $('#result').html('<p>请求出错，请稍后重试。</p>');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
